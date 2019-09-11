@@ -1,0 +1,450 @@
+---
+include:
+  - section-iv.yml
+  - section-v.yml
+  - section-vi2.yml
+---
+objects: 
+  - client: Individual
+  - children: ChildList
+  - ind_household: DADict.using(there_are_any=True, object_type=DAObject, complete_attribute='month_contrib')
+  - employer: Person
+  - spouse_employer: Person
+  - vehicles: DADict.using(there_are_any=True, object_type=DAObject, complete_attribute='current_value')
+  - realprop: DADict.using(there_are_any=True, object_type=DAObject, complete_attribute='current_value')
+  - bankact: DADict.using(there_are_any=True, object_type=DAObject, complete_attribute='act_type')
+  - retirement_acts: DADict.using(there_are_any=True, object_type=DAObject, complete_attribute='balance')
+  - securities: DADict.using(there_are_any=True, object_type=DAObject, complete_attribute='cur_val')
+  - credit_cards: DADict.using(there_are_any=True, object_type=DAObject, complete_attribute='total_amt_owed')
+---
+modules:
+  - docassemble.ssa.ssa
+---
+features:
+  javascript: docassemble.ssa:ssa2.js
+---
+question: |
+  What is your name?
+fields: 
+  - First: client.name.first
+  - Middle: client.name.middle
+    required: False
+  - Last: client.name.last
+---
+question: |
+  What is your current address?
+fields: 
+  - Street Address: client.address.address
+  - City: client.address.city
+  - State: client.address.state
+    code: states_list()
+  - Zip Code: client.address.zip
+---
+question: |
+  Do you rent or own ${ client.address.address }?
+fields: 
+  - no label: client.address.type
+    choices: 
+      - Rent
+      - Own
+      - Other
+  - Amount owed on mortgage: ownhome_mort
+    required: False
+    show if: 
+      variable: 
+        client.address.type
+      is: 
+        'Own'
+  - Amount of equity in property: ownhome_equity
+    required: False
+    show if: 
+      variable: 
+        client.address.type
+      is: 
+        'Own'
+  - Current market value: ownhome_marketval
+    required: False
+    show if: 
+      variable: 
+        client.address.type
+      is: 
+        'Own'        
+  - Please specify the type of residence: client.address.type_specify
+    required: False
+    show if: 
+      variable: 
+        client.address.type
+      is: 
+        'Other'
+---
+code: |
+  if client.address.type == 'Own':
+    realprop.new_item_name = 0
+    realprop[0].description = 'Home'
+    realprop[0].city = client.address.state
+    realprop[0].address = client.address.address
+    realprop[0].state = client.address.state
+    realprop[0].zip = client.address.zip
+    realprop[0].current_value = ownhome_marketval
+    hasprop = False
+
+
+---
+question: |
+  How long have you lived at ${ client.address.address }?
+fields: 
+  - Months: client.address.month
+  - Years: client.address.years
+---
+question: |
+  What is your email address, home phone number, and cell phone number?
+fields: 
+  - Email: client.email
+    datatype: email
+  - Home Phone: client.homephone
+    required: false
+  - Cell Phone: client.cellphone
+    required: false
+---
+question: |
+  What is your Social Security Number and date of birth?
+fields: 
+  - SSN: client.ssn
+    datatype: ssn
+    validate: is_valid_ssn
+    required: false
+  - Drivers license number: client.dl
+    required: false
+  - Date of Birth: client.birthdate
+    datatype: date
+    
+---
+question: |
+  What is your current marital status?
+fields: 
+  - no label: client.marital_status
+    choices: 
+      - Married: "Yes"
+      - Single: "No"
+      - Separated: "Separated"
+  - Spouse Name: client.spouse_name
+    show if: 
+      variable: 
+        client.marital_status
+      is: 
+        "Yes"
+  - Spouse DOB: client.spouse_birthdate
+    datatype: date
+    show if: 
+      variable: 
+        client.marital_status
+      is: 
+        "Yes"
+---
+question: |
+  Take out the Notice of Arrears that you received from the DOR.
+subquestion: |
+  It looks like this: 
+  What is the total amount you should be paying according to the Notice 
+  of Arrears, and how often should you be paying it?
+fields: 
+  - Total amount: total_support
+    datatype: currency
+  - Every: total_support_freq
+    choices: 
+      - Week: Weekly
+      - Month: Monthly
+---
+code: |
+  haschildren = True
+  children.target_number
+  children.there_are_any = True
+  children.ask_number = True
+  complete_attribute = 'complete'
+---
+code: |
+  children[i].name
+  children[i].birthdate
+  children[i].live_with
+  children[i].complete = True
+
+
+---
+question: |
+  How many children is the original child support order for?
+fields:
+  - Number: children.target_number
+    datatype: integer
+---
+
+    
+
+---
+
+question: |
+  Please complete the following about the ${ ordinal(i) } child:
+
+fields:
+  - First Name: children[i].name.first
+  - Last Name: children[i].name.last
+  - Date of Birth: children[i].birthdate
+    datatype: date
+  - Does this child live with you?: children[i].live_in
+    choices: 
+      - Yes
+      - No
+
+
+---
+table: children.table
+rows: children
+columns: 
+  - Child's name: row_item
+  - Birthdate: row_item.birthdate
+  - Does child live with you?: row_item.live_in
+edit:
+  - name
+  - live_in
+---
+code: |
+  div_amt = total_support / len(children)
+    
+---
+question: |
+  Do any other people live in your house besides yourself
+  and the children you already mentioned?
+yesno: hasindividual
+
+---
+code: |
+  if hasindividual == True:
+    ind_household.there_are_any=True
+    ind_household.new_item_name = len(ind_household)
+  else: 
+    ind_household.there_are_any=False
+
+---
+
+question: |
+  Please complete the following about the ${ ordinal(i) } individual:
+fields:
+  - Name: ind_household[i].name
+  - What is their relationship to you?: ind_household[i].relationship
+  - Do they contribute to household expenses?: ind_household[i].month_contrib
+    datatype: yesnoradio
+  - How much?: ind_household[i].month_contrib_amt
+    datatype: currency
+    show if: 
+      variable: 
+        ind_household[i].month_contrib
+      is: 
+        True
+---
+
+question: |
+  Would you like to add another individual who lives with you?
+subquestion: |
+  So far you have added these individuals: 
+  
+  Name   |Relationship   |Do they contribute to household expenses?   |How much?
+  -------|---------------|--------------------------------------------|-----------
+  % for ind in ind_household:
+  % if ind_household.item(ind).month_contrib == True:
+  ${ ind_household.item(ind).name } | ${ ind_household.item(ind).relationship } | Yes | ${ ind_household.item(ind).month_contrib_amt }
+  % else: 
+  ${ ind_household.item(ind).name } | ${ ind_household.item(ind).relationship } | No | N/A
+  % endif
+  % endfor  
+  
+yesno: ind_household.there_is_another
+---
+question: |
+  Are you currently employed?
+fields: 
+  - no label: client_is_employed
+    datatype: yesnoradio
+  - Are you self-employed?: employer.self
+    choices: 
+      - Yes
+      - No
+    show if:
+      variable: 
+        client_is_employed
+      is: 
+        True       
+  - Employer Name: employer.name.text
+    show if:
+      variable: 
+        client_is_employed
+      is: 
+        True
+  - Employer Address: employer.address.address
+    show if:
+      variable: 
+        client_is_employed
+      is: 
+        True
+  - City: employer.address.city
+    show if:
+      variable: 
+        client_is_employed
+      is: 
+        True
+  - State: employer.address.state
+    code: 
+      states_list()
+    show if:
+      variable: 
+        client_is_employed
+      is: 
+        True        
+  - Zip: employer.address.zip
+    datatype: integer
+    show if:
+      variable: 
+        client_is_employed
+      is: 
+        True      
+  - Phone: employer.phone
+    show if:
+      variable: 
+        client_is_employed
+      is: 
+        True  
+  - Occupation: employer.occupation
+    show if:
+      variable: 
+        client_is_employed
+      is: 
+        True  
+  - Employed from: employer.from_date
+    datatype: date
+    show if:
+      variable: 
+        client_is_employed
+      is: 
+        True
+  - Employed to: employer.to_date
+    show if:
+      variable: 
+        client_is_employed
+      is: 
+        True
+    choices: 
+      - Present
+      - Date
+  - On what date did your employment end?: employer.from_date_d
+    datatype: date
+    show if: 
+      variable: 
+        employer.to_date
+      is: 
+        'Date'
+
+---
+
+---
+if: |
+  client.marital_status == "Yes"
+question: |
+  Is your spouse employed?
+fields: 
+  - no label: is_spouse_employed
+    datatype: yesnoradio
+  - Spouse's Employer: spouse_employer.name
+    show if: 
+      variable:
+        is_spouse_employed
+      is: 
+        True
+  - Employer Address: spouse_employer.address.address
+    show if: 
+      variable:
+        is_spouse_employed
+      is: 
+        True        
+  - City: spouse_employer.address.city
+    show if: 
+      variable:
+        is_spouse_employed
+      is: 
+        True
+  - State: spouse_employer.address.state
+    code: 
+      states_list()
+    show if: 
+      variable:
+        is_spouse_employed
+      is: 
+        True
+  - Zip: spouse_employer.address.zip
+    datatype: integer
+    show if: 
+      variable:
+        is_spouse_employed
+      is: 
+        True
+---
+if: |
+  client.marital_status == "Yes"
+question : |
+  Does your spouse have a monthly income source 
+  % if is_spouse_employed == True:
+  other than employment with ${spouse_employer.name}?
+  % else: 
+  ?
+  % endif
+fields: 
+  - no label: spouse_has_other_income_source 
+    datatype: yesnoradio
+  - What source?: spouse_monthly_income_source
+    show if: 
+      variable: 
+        spouse_has_other_income_source
+      is: 
+        True
+---
+if: |
+  client.marital_status == "Yes"
+question: |
+  What is your spouse's monthly income from all sources
+  % if is_spouse_employed == True and spouse_has_other_income_source:
+  including employment with ${spouse_employer.name} and from ${spouse_monthly_income_source}?
+  % elif is_spouse_employed == True:
+  including employment with ${spouse_employer.name}?
+  % elif is_spouse_employed == True:
+  including ${spouse_monthly_income_source}?
+  % else: 
+  ?
+  % endif
+fields: 
+  - Monthly Income: spouse_monthly_income
+    datatype: currency
+
+---
+
+
+
+---
+code: |
+  
+  if client.marital_status != "Yes":
+    client.spouse_birthdate = "N/A"
+    client.spouse_name = "N/A"
+    is_spouse_employed = False
+    spouse_monthly_income = "N/A"
+    spouse_monthly_income_source = "N/A"
+    
+   
+
+---
+mandatory: true
+question: |
+  Here is your document.
+attachments:
+  - name: Statement of Financial Condition
+    filename: statement_of_financial_condition
+    docx template file: sofc6.docx
+    valid formats:
+      - pdf
+      - docx
